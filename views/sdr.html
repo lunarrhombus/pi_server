@@ -412,6 +412,7 @@
         <div class="navbar-links">
             <a href="/">Home</a>
             <a href="/sdr">RTL-SDR</a>
+            <a href="/camera">Camera</a>
             <a href="/logout">Logout</a>
         </div>
     </nav>
@@ -477,7 +478,10 @@
             </div>
 
             <h3 style="margin: 20px 0 10px 0;">Spectrum Analyzer</h3>
-            <canvas id="spectrumCanvas" width="1200" height="300"></canvas>
+            <div style="position: relative; background: rgba(0, 0, 0, 0.5); border-radius: 8px; padding: 10px;">
+                <canvas id="spectrumCanvas" width="1200" height="300" style="cursor: crosshair; display: block;"></canvas>
+                <div id="frequencyTooltip" style="position: absolute; background: rgba(0, 0, 0, 0.8); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; pointer-events: none; display: none;"></div>
+            </div>
 
             <h3 style="margin: 20px 0 10px 0;">Audio Output</h3>
             <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
@@ -519,6 +523,10 @@
         const spectrumCtx = spectrumCanvas.getContext('2d');
         const spectrumData = new Array(256).fill(0);
         let currentCenterFreq = 100000000; // Store current center frequency
+        let currentSampleRate = 2048000;
+        let selectedFrequency = null; // For draggable frequency line
+        let isDragging = false;
+        const frequencyTooltip = document.getElementById('frequencyTooltip');
 
         // Simple FFT implementation for visualization
         function fft(samples) {
@@ -549,8 +557,8 @@
             const graphWidth = width - padding * 2;
             const graphHeight = height - padding;
 
-            // Clear canvas
-            spectrumCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            // Clear canvas with darker background
+            spectrumCtx.fillStyle = 'rgba(10, 10, 20, 0.95)';
             spectrumCtx.fillRect(0, 0, width, height);
 
             // Draw horizontal grid lines and amplitude labels
@@ -623,21 +631,63 @@
                 spectrumData[i] = spectrumData[i] * 0.8 + magnitudes[i] * 0.2;
             }
 
-            // Draw spectrum bars
+            // Draw spectrum bars with improved style
             const barWidth = graphWidth / spectrumData.length;
-            const gradient = spectrumCtx.createLinearGradient(0, height - padding, 0, padding);
-            gradient.addColorStop(0, '#27ae60');
-            gradient.addColorStop(0.5, '#f39c12');
-            gradient.addColorStop(1, '#e74c3c');
-
-            spectrumCtx.fillStyle = gradient;
 
             for (let i = 0; i < spectrumData.length; i++) {
                 const barHeight = (spectrumData[i] * graphHeight * 2);
                 const x = padding + i * barWidth;
                 const y = height - padding - barHeight;
 
-                spectrumCtx.fillRect(x, y, barWidth - 1, barHeight);
+                // Color based on intensity
+                const intensity = spectrumData[i];
+                let color;
+                if (intensity < 0.3) {
+                    color = `rgba(52, 152, 219, ${0.5 + intensity})`; // Blue
+                } else if (intensity < 0.6) {
+                    color = `rgba(46, 204, 113, ${0.6 + intensity})`; // Green
+                } else if (intensity < 0.8) {
+                    color = `rgba(241, 196, 15, ${0.7 + intensity})`; // Yellow
+                } else {
+                    color = `rgba(231, 76, 60, ${0.8 + intensity})`; // Red
+                }
+
+                spectrumCtx.fillStyle = color;
+                spectrumCtx.fillRect(x, y, barWidth - 0.5, barHeight);
+
+                // Add glow effect for high peaks
+                if (intensity > 0.7) {
+                    spectrumCtx.shadowBlur = 8;
+                    spectrumCtx.shadowColor = color;
+                    spectrumCtx.fillRect(x, y, barWidth - 0.5, barHeight);
+                    spectrumCtx.shadowBlur = 0;
+                }
+            }
+
+            // Draw selected frequency line
+            if (selectedFrequency !== null) {
+                const freqStart = currentCenterFreq - currentSampleRate / 2;
+                const freqEnd = currentCenterFreq + currentSampleRate / 2;
+                const freqRange = freqEnd - freqStart;
+                const freqPos = (selectedFrequency - freqStart) / freqRange;
+                const lineX = padding + freqPos * graphWidth;
+
+                // Draw vertical line
+                spectrumCtx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+                spectrumCtx.lineWidth = 2;
+                spectrumCtx.setLineDash([5, 5]);
+                spectrumCtx.beginPath();
+                spectrumCtx.moveTo(lineX, padding);
+                spectrumCtx.lineTo(lineX, height - padding);
+                spectrumCtx.stroke();
+                spectrumCtx.setLineDash([]);
+
+                // Draw frequency label
+                spectrumCtx.fillStyle = 'rgba(255, 255, 0, 0.9)';
+                spectrumCtx.font = 'bold 14px monospace';
+                spectrumCtx.textAlign = 'center';
+                const freqMHz = (selectedFrequency / 1000000).toFixed(3);
+                spectrumCtx.fillText(`${freqMHz} MHz`, lineX, padding - 10);
             }
         }
 
@@ -713,6 +763,55 @@
             logContainer.scrollTop = logContainer.scrollHeight;
         }
 
+        // Mouse interaction for spectrum canvas
+        spectrumCanvas.addEventListener('click', (e) => {
+            const rect = spectrumCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const padding = 50;
+            const graphWidth = spectrumCanvas.width - padding * 2;
+
+            if (x >= padding && x <= spectrumCanvas.width - padding) {
+                // Calculate frequency at click position
+                const freqPos = (x - padding) / graphWidth;
+                const freqStart = currentCenterFreq - currentSampleRate / 2;
+                const freqEnd = currentCenterFreq + currentSampleRate / 2;
+                selectedFrequency = freqStart + freqPos * (freqEnd - freqStart);
+
+                // Update frequency input
+                document.getElementById('frequency').value = (selectedFrequency / 1000000).toFixed(2);
+
+                addLog(`Selected frequency: ${(selectedFrequency / 1000000).toFixed(3)} MHz`);
+            }
+        });
+
+        spectrumCanvas.addEventListener('mousemove', (e) => {
+            const rect = spectrumCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const padding = 50;
+            const graphWidth = spectrumCanvas.width - padding * 2;
+
+            if (x >= padding && x <= spectrumCanvas.width - padding) {
+                // Calculate frequency at mouse position
+                const freqPos = (x - padding) / graphWidth;
+                const freqStart = currentCenterFreq - currentSampleRate / 2;
+                const freqEnd = currentCenterFreq + currentSampleRate / 2;
+                const hoverFreq = freqStart + freqPos * (freqEnd - freqStart);
+
+                // Show tooltip
+                frequencyTooltip.textContent = `${(hoverFreq / 1000000).toFixed(3)} MHz`;
+                frequencyTooltip.style.display = 'block';
+                frequencyTooltip.style.left = (e.clientX - rect.left + 10) + 'px';
+                frequencyTooltip.style.top = (e.clientY - rect.top - 30) + 'px';
+            } else {
+                frequencyTooltip.style.display = 'none';
+            }
+        });
+
+        spectrumCanvas.addEventListener('mouseleave', () => {
+            frequencyTooltip.style.display = 'none';
+        });
+
         // Start drawing spectrum animation
         function animateSpectrum() {
             drawSpectrum();
@@ -734,8 +833,9 @@
                 gain: gain
             };
 
-            // Store current center frequency for spectrum labels
+            // Store current center frequency and sample rate for spectrum labels
             currentCenterFreq = frequencyHz;
+            currentSampleRate = sampleRate;
 
             socket.emit('start-sdr', config);
             isMonitoring = true;

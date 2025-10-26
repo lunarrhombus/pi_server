@@ -6,6 +6,7 @@ const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
 const rtlSdrModule = require('./modules/rtl-sdr');
+const piCamera = require('./modules/pi-camera');
 
 const app = express();
 const server = http.createServer(app);
@@ -81,6 +82,42 @@ app.get('/sdr', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'sdr.html'));
 });
 
+app.get('/camera', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'camera.html'));
+});
+
+// Reboot endpoint
+app.post('/api/reboot', requireAuth, (req, res) => {
+    const { exec } = require('child_process');
+
+    res.json({ success: true, message: 'Rebooting Raspberry Pi...' });
+
+    // Execute reboot command after sending response
+    setTimeout(() => {
+        exec('sudo reboot', (error) => {
+            if (error) {
+                console.error('Reboot error:', error);
+            }
+        });
+    }, 1000);
+});
+
+// Shutdown endpoint
+app.post('/api/shutdown', requireAuth, (req, res) => {
+    const { exec } = require('child_process');
+
+    res.json({ success: true, message: 'Shutting down Raspberry Pi...' });
+
+    // Execute shutdown command after sending response
+    setTimeout(() => {
+        exec('sudo shutdown -h now', (error) => {
+            if (error) {
+                console.error('Shutdown error:', error);
+            }
+        });
+    }, 1000);
+});
+
 // API endpoint for server stats
 app.get('/api/server-stats', requireAuth, async (req, res) => {
     const os = require('os');
@@ -148,6 +185,62 @@ app.get('/api/server-stats', requireAuth, async (req, res) => {
         usedDisk: (diskUsed / 1024 / 1024 / 1024).toFixed(2),
         diskUsagePercent: diskUsagePercent
     });
+});
+
+// Camera API endpoints
+app.post('/api/camera/start', requireAuth, (req, res) => {
+    const result = piCamera.startStream();
+    res.json(result);
+});
+
+app.post('/api/camera/stop', requireAuth, (req, res) => {
+    const result = piCamera.stopStream();
+    res.json(result);
+});
+
+app.get('/api/camera/stream', requireAuth, (req, res) => {
+    const frame = piCamera.getCurrentFrame();
+    if (frame) {
+        res.writeHead(200, {
+            'Content-Type': 'image/jpeg',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        });
+        res.end(frame);
+    } else {
+        res.status(404).send('No frame available');
+    }
+});
+
+app.get('/api/camera/placeholder', (req, res) => {
+    // Send a simple placeholder SVG
+    const svg = `<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
+        <rect width="1280" height="720" fill="#1a1a2e"/>
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+              font-family="Arial" font-size="24" fill="#666">Camera Stopped</text>
+    </svg>`;
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.send(svg);
+});
+
+app.post('/api/camera/capture', requireAuth, async (req, res) => {
+    try {
+        const result = await piCamera.capturePhoto();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/camera/photos', requireAuth, (req, res) => {
+    const result = piCamera.getPhotos();
+    res.json(result);
+});
+
+app.delete('/api/camera/photo/:filename', requireAuth, (req, res) => {
+    const result = piCamera.deletePhoto(req.params.filename);
+    res.json(result);
 });
 
 // Socket.IO for real-time RTL-SDR data

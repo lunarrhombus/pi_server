@@ -280,6 +280,7 @@
         <div class="navbar-links">
             <a href="/">Home</a>
             <a href="/sdr">RTL-SDR</a>
+            <a href="/camera">Camera</a>
             <a href="/logout">Logout</a>
         </div>
     </nav>
@@ -296,8 +297,14 @@
             </div>
 
             <div class="card">
+                <h2>Pi Camera</h2>
+                <p>Live stream from your Raspberry Pi Camera. Capture photos and view your gallery.</p>
+                <a href="/camera">View Camera</a>
+            </div>
+
+            <div class="card">
                 <h2>About This Server</h2>
-                <p>This server is running on your Raspberry Pi 3, accessible from anywhere on your network.</p>
+                <p>This server is running on your Raspberry Pi, accessible from anywhere on your network.</p>
             </div>
         </div>
 
@@ -333,15 +340,18 @@
             </div>
         </div>
 
+        <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center;">
+            <button id="rebootBtn" style="padding: 12px 24px; background: #f39c12; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s;">
+                🔄 Reboot Pi
+            </button>
+            <button id="shutdownBtn" style="padding: 12px 24px; background: #e74c3c; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s;">
+                ⚡ Shutdown Pi
+            </button>
+        </div>
+
     </div>
 
     <script>
-        // Memory usage history (max 60 data points = 1 minute at 1s updates)
-        const memoryHistory = [];
-        const maxDataPoints = 60;
-
-
-
         // Fetch real server stats from API
         async function fetchServerStats() {
             try {
@@ -366,15 +376,6 @@
                 document.getElementById('storageUsage').textContent =
                     `${stats.usedDisk} / ${stats.totalDisk} GB (${stats.diskUsagePercent}%)`;
 
-                // Add to memory history
-                memoryHistory.push(stats.memoryUsagePercent);
-                if (memoryHistory.length > maxDataPoints) {
-                    memoryHistory.shift(); // Remove oldest data point
-                }
-
-                // Redraw graph
-                drawMemoryGraph();
-
             } catch (error) {
                 console.error('Error fetching server stats:', error);
                 document.getElementById('status').textContent = 'Error loading stats';
@@ -384,8 +385,51 @@
         // Initial fetch
         fetchServerStats();
 
-        // Update every 1 second for real-time monitoring
-        setInterval(fetchServerStats, 1000);
+        // Update every 5 seconds
+        setInterval(fetchServerStats, 5000);
+
+        // Reboot button
+        document.getElementById('rebootBtn').addEventListener('click', async () => {
+            if (confirm('Are you sure you want to reboot the Raspberry Pi? This will disconnect all connections.')) {
+                try {
+                    const response = await fetch('/api/reboot', { method: 'POST' });
+                    const data = await response.json();
+                    alert(data.message || 'Reboot command sent. The server will be unavailable for a few minutes.');
+                } catch (error) {
+                    alert('Reboot initiated. The page will reconnect when the server is back online.');
+                    setTimeout(() => location.reload(), 60000); // Reload after 1 minute
+                }
+            }
+        });
+
+        // Shutdown button
+        document.getElementById('shutdownBtn').addEventListener('click', async () => {
+            if (confirm('Are you sure you want to shutdown the Raspberry Pi? You will need physical access to turn it back on.')) {
+                if (confirm('This will PERMANENTLY shutdown the Pi until manually powered on. Continue?')) {
+                    try {
+                        const response = await fetch('/api/shutdown', { method: 'POST' });
+                        const data = await response.json();
+                        alert(data.message || 'Shutdown command sent. The server will power off shortly.');
+                    } catch (error) {
+                        alert('Shutdown initiated. The server is powering down.');
+                    }
+                }
+            }
+        });
+
+        // Hover effects for buttons
+        document.getElementById('rebootBtn').addEventListener('mouseenter', (e) => {
+            e.target.style.transform = 'translateY(-2px)';
+        });
+        document.getElementById('rebootBtn').addEventListener('mouseleave', (e) => {
+            e.target.style.transform = 'translateY(0)';
+        });
+        document.getElementById('shutdownBtn').addEventListener('mouseenter', (e) => {
+            e.target.style.transform = 'translateY(-2px)';
+        });
+        document.getElementById('shutdownBtn').addEventListener('mouseleave', (e) => {
+            e.target.style.transform = 'translateY(0)';
+        });
     </script>
 </body>
 </html>

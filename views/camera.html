@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pi Camera - Pi Server</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .navbar {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .navbar-brand {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .navbar-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .navbar-links a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .navbar-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .start-btn {
+            background: #27ae60;
+            color: white;
+        }
+
+        .stop-btn {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .capture-btn {
+            background: #3498db;
+            color: white;
+        }
+
+        .video-container {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .video-wrapper {
+            position: relative;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            overflow: hidden;
+            max-width: 100%;
+        }
+
+        #cameraStream {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 8px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e74c3c;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.active {
+            background: #27ae60;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .info-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+
+        .info-label {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .gallery {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 25px;
+        }
+
+        .gallery h2 {
+            margin-bottom: 20px;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .gallery-item {
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .gallery-item:hover {
+            transform: scale(1.05);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .gallery-item .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(231, 76, 60, 0.8);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 14px;
+            display: none;
+        }
+
+        .gallery-item:hover .delete-btn {
+            display: block;
+        }
+
+        /* Mobile responsive styles */
+        @media screen and (max-width: 768px) {
+            .container {
+                padding: 20px 15px;
+            }
+
+            h1 {
+                font-size: 28px;
+                margin-bottom: 20px;
+            }
+
+            .navbar {
+                padding: 12px 15px;
+                flex-wrap: wrap;
+            }
+
+            .navbar-brand {
+                font-size: 20px;
+            }
+
+            .navbar-links {
+                gap: 10px;
+            }
+
+            .navbar-links a {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+
+            .control-panel {
+                padding: 20px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .button-group button {
+                width: 100%;
+            }
+
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 10px;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            h1 {
+                font-size: 24px;
+            }
+
+            .navbar-brand {
+                font-size: 18px;
+            }
+
+            .navbar-links {
+                width: 100%;
+                justify-content: space-around;
+                margin-top: 10px;
+            }
+
+            button {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-brand">Pi Camera</div>
+        <div class="navbar-links">
+            <a href="/">Home</a>
+            <a href="/sdr">RTL-SDR</a>
+            <a href="/camera">Camera</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Raspberry Pi Camera</h1>
+
+        <div class="control-panel">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Camera Stopped</span>
+            </div>
+
+            <div class="button-group">
+                <button class="start-btn" id="startStreamBtn">Start Stream</button>
+                <button class="stop-btn" id="stopStreamBtn" disabled>Stop Stream</button>
+                <button class="capture-btn" id="captureBtn" disabled>📷 Capture Photo</button>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Resolution</div>
+                    <div class="info-value" id="resolution">1280x720</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Frame Rate</div>
+                    <div class="info-value" id="frameRate">30 fps</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Photos Captured</div>
+                    <div class="info-value" id="photoCount">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="video-container">
+            <h2 style="margin-bottom: 15px;">Live Stream</h2>
+            <div class="video-wrapper">
+                <img id="cameraStream" src="/api/camera/placeholder" alt="Camera Stream">
+            </div>
+        </div>
+
+        <div class="gallery">
+            <h2>Captured Photos</h2>
+            <div class="gallery-grid" id="galleryGrid">
+                <p style="opacity: 0.6;">No photos captured yet</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isStreaming = false;
+        let streamInterval = null;
+        let photoCount = 0;
+
+        const startStreamBtn = document.getElementById('startStreamBtn');
+        const stopStreamBtn = document.getElementById('stopStreamBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const cameraStream = document.getElementById('cameraStream');
+        const galleryGrid = document.getElementById('galleryGrid');
+        const photoCountEl = document.getElementById('photoCount');
+
+        // Start streaming
+        startStreamBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/camera/start', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    isStreaming = true;
+                    startStreamBtn.disabled = true;
+                    stopStreamBtn.disabled = false;
+                    captureBtn.disabled = false;
+                    statusDot.classList.add('active');
+                    statusText.textContent = 'Camera Streaming';
+
+                    // Start fetching frames
+                    cameraStream.src = '/api/camera/stream?' + new Date().getTime();
+                    streamInterval = setInterval(() => {
+                        if (isStreaming) {
+                            cameraStream.src = '/api/camera/stream?' + new Date().getTime();
+                        }
+                    }, 100); // Update every 100ms for ~10fps
+                }
+            } catch (error) {
+                console.error('Error starting stream:', error);
+                alert('Failed to start camera stream');
+            }
+        });
+
+        // Stop streaming
+        stopStreamBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/camera/stop', { method: 'POST' });
+                const data = await response.json();
+
+                isStreaming = false;
+                startStreamBtn.disabled = false;
+                stopStreamBtn.disabled = true;
+                captureBtn.disabled = true;
+                statusDot.classList.remove('active');
+                statusText.textContent = 'Camera Stopped';
+
+                if (streamInterval) {
+                    clearInterval(streamInterval);
+                    streamInterval = null;
+                }
+
+                cameraStream.src = '/api/camera/placeholder';
+            } catch (error) {
+                console.error('Error stopping stream:', error);
+            }
+        });
+
+        // Capture photo
+        captureBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/camera/capture', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    photoCount++;
+                    photoCountEl.textContent = photoCount;
+
+                    // Add to gallery
+                    addPhotoToGallery(data.filename, data.url);
+
+                    alert('Photo captured successfully!');
+                }
+            } catch (error) {
+                console.error('Error capturing photo:', error);
+                alert('Failed to capture photo');
+            }
+        });
+
+        // Add photo to gallery
+        function addPhotoToGallery(filename, url) {
+            if (galleryGrid.querySelector('p')) {
+                galleryGrid.innerHTML = '';
+            }
+
+            const item = document.createElement('div');
+            item.className = 'gallery-item';
+            item.innerHTML = `
+                <img src="${url}" alt="${filename}">
+                <button class="delete-btn" onclick="deletePhoto('${filename}')">×</button>
+            `;
+
+            item.querySelector('img').addEventListener('click', () => {
+                window.open(url, '_blank');
+            });
+
+            galleryGrid.insertBefore(item, galleryGrid.firstChild);
+        }
+
+        // Delete photo
+        async function deletePhoto(filename) {
+            if (confirm('Delete this photo?')) {
+                try {
+                    const response = await fetch(`/api/camera/photo/${filename}`, { method: 'DELETE' });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        loadGallery();
+                        photoCount--;
+                        photoCountEl.textContent = Math.max(0, photoCount);
+                    }
+                } catch (error) {
+                    console.error('Error deleting photo:', error);
+                    alert('Failed to delete photo');
+                }
+            }
+        }
+
+        // Load existing photos
+        async function loadGallery() {
+            try {
+                const response = await fetch('/api/camera/photos');
+                const data = await response.json();
+
+                if (data.photos && data.photos.length > 0) {
+                    galleryGrid.innerHTML = '';
+                    photoCount = data.photos.length;
+                    photoCountEl.textContent = photoCount;
+
+                    data.photos.forEach(photo => {
+                        addPhotoToGallery(photo.filename, photo.url);
+                    });
+                } else {
+                    galleryGrid.innerHTML = '<p style="opacity: 0.6;">No photos captured yet</p>';
+                }
+            } catch (error) {
+                console.error('Error loading gallery:', error);
+            }
+        }
+
+        // Load gallery on page load
+        loadGallery();
+    </script>
+</body>
+</html>
