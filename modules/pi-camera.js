@@ -1,10 +1,11 @@
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 let cameraProcess = null;
 let isStreaming = false;
 let currentFrame = null;
+let useLibCamera = false;
 
 // Ensure photos directory exists
 const photosDir = path.join(__dirname, '..', 'public', 'photos');
@@ -12,8 +13,46 @@ if (!fs.existsSync(photosDir)) {
     fs.mkdirSync(photosDir, { recursive: true });
 }
 
+// Check which camera system is available
+function checkCameraSystem() {
+    return new Promise((resolve) => {
+        // Check for rpicam-jpeg (newest)
+        exec('which rpicam-jpeg', (error) => {
+            if (!error) {
+                console.log('Using rpicam system (newest)');
+                useLibCamera = true;
+                resolve('rpicam');
+            } else {
+                // Check for libcamera-jpeg (newer)
+                exec('which libcamera-jpeg', (error2) => {
+                    if (!error2) {
+                        console.log('Using libcamera system');
+                        useLibCamera = true;
+                        resolve('libcamera');
+                    } else {
+                        // Check for raspistill (legacy)
+                        exec('which raspistill', (error3) => {
+                            if (!error3) {
+                                console.log('Using legacy raspistill');
+                                useLibCamera = false;
+                                resolve('raspistill');
+                            } else {
+                                console.error('No camera system found. Please install rpicam-apps or enable legacy camera.');
+                                resolve(null);
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    });
+}
+
+// Initialize camera system check
+checkCameraSystem();
+
 /**
- * Start camera streaming using raspistill in timelapse mode
+ * Start camera streaming
  */
 function startStream() {
     if (isStreaming) {
@@ -22,17 +61,37 @@ function startStream() {
     }
 
     try {
-        // Use raspistill in timelapse mode for streaming
-        // Takes a photo every 100ms and outputs to stdout
-        cameraProcess = spawn('raspistill', [
-            '-t', '0',              // Run indefinitely
-            '-w', '1280',           // Width
-            '-h', '720',            // Height
-            '-q', '15',             // Quality (lower for faster streaming)
-            '-o', '-',              // Output to stdout
-            '-tl', '100',           // Timelapse interval (100ms)
-            '-n'                    // No preview
-        ]);
+        if (useLibCamera) {
+            // Use rpicam-vid or libcamera-vid for streaming
+            // Try rpicam-vid first, fall back to libcamera-vid
+            const vidCommand = fs.existsSync('/usr/bin/rpicam-vid') ? 'rpicam-vid' : 'libcamera-vid';
+
+            cameraProcess = spawn(vidCommand, [
+                '-t', '0',              // Run indefinitely
+                '--width', '1280',      // Width
+                '--height', '720',      // Height
+                '--framerate', '10',    // 10 fps
+                '--codec', 'mjpeg',     // MJPEG codec
+                '-o', '-',              // Output to stdout
+                '--nopreview',          // No preview
+                '-n'                    // No banner
+            ]);
+
+            console.log(`Starting camera stream with ${vidCommand}`);
+        } else {
+            // Use raspistill in timelapse mode for streaming
+            cameraProcess = spawn('raspistill', [
+                '-t', '0',              // Run indefinitely
+                '-w', '1280',           // Width
+                '-h', '720',            // Height
+                '-q', '15',             // Quality (lower for faster streaming)
+                '-o', '-',              // Output to stdout
+                '-tl', '100',           // Timelapse interval (100ms)
+                '-n'                    // No preview
+            ]);
+
+            console.log('Starting camera stream with raspistill');
+        }
 
         cameraProcess.stdout.on('data', (data) => {
             currentFrame = data;
@@ -102,15 +161,36 @@ async function capturePhoto() {
         const filename = `photo_${timestamp}.jpg`;
         const filepath = path.join(photosDir, filename);
 
-        // Capture a high-quality still image
-        const captureProcess = spawn('raspistill', [
-            '-o', filepath,
-            '-w', '1920',
-            '-h', '1080',
-            '-q', '85',
-            '-t', '500',
-            '-n'
-        ]);
+        let captureProcess;
+
+        if (useLibCamera) {
+            // Use rpicam-jpeg or libcamera-jpeg for high-quality still image
+            const jpegCommand = fs.existsSync('/usr/bin/rpicam-jpeg') ? 'rpicam-jpeg' : 'libcamera-jpeg';
+
+            captureProcess = spawn(jpegCommand, [
+                '-o', filepath,
+                '--width', '1920',
+                '--height', '1080',
+                '-q', '85',
+                '-t', '500',
+                '--nopreview',
+                '-n'
+            ]);
+
+            console.log(`Capturing photo with ${jpegCommand}`);
+        } else {
+            // Capture a high-quality still image with raspistill
+            captureProcess = spawn('raspistill', [
+                '-o', filepath,
+                '-w', '1920',
+                '-h', '1080',
+                '-q', '85',
+                '-t', '500',
+                '-n'
+            ]);
+
+            console.log('Capturing photo with raspistill');
+        }
 
         captureProcess.on('close', (code) => {
             if (code === 0 && fs.existsSync(filepath)) {

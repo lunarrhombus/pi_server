@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm init -y)",
       "Bash(npm install:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(ssh:*)"
     ],
     "deny": [],
     "ask": []
