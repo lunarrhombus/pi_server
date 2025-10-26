@@ -294,6 +294,17 @@
                 </div>
             </div>
 
+            <h3 style="margin: 20px 0 10px 0;">Spectrum Analyzer</h3>
+            <canvas id="spectrumCanvas" width="1200" height="300"></canvas>
+
+            <h3 style="margin: 20px 0 10px 0;">Audio Output</h3>
+            <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <button class="start-btn" id="audioBtn" disabled style="margin-right: 10px;">Enable Audio</button>
+                <label style="margin-left: 20px;">Volume: </label>
+                <input type="range" id="volumeSlider" min="0" max="100" value="50" style="vertical-align: middle; width: 200px;">
+                <span id="volumeValue" style="margin-left: 10px;">50%</span>
+            </div>
+
             <h3 style="margin: 20px 0 10px 0;">Activity Log</h3>
             <div class="log-container" id="logContainer">
                 <div class="log-entry">
@@ -308,12 +319,151 @@
         const socket = io();
         let isMonitoring = false;
         let sampleCount = 0;
+        let audioContext = null;
+        let audioEnabled = false;
+        let audioQueue = [];
 
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
         const logContainer = document.getElementById('logContainer');
+        const audioBtn = document.getElementById('audioBtn');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeValue = document.getElementById('volumeValue');
+
+        // Spectrum canvas setup
+        const spectrumCanvas = document.getElementById('spectrumCanvas');
+        const spectrumCtx = spectrumCanvas.getContext('2d');
+        const spectrumData = new Array(256).fill(0);
+
+        // Simple FFT implementation for visualization
+        function fft(samples) {
+            const N = samples.length;
+            const magnitudes = new Array(N / 2).fill(0);
+
+            for (let k = 0; k < N / 2; k++) {
+                let realSum = 0;
+                let imagSum = 0;
+
+                for (let n = 0; n < N; n++) {
+                    const angle = (-2 * Math.PI * k * n) / N;
+                    realSum += samples[n] * Math.cos(angle);
+                    imagSum += samples[n] * Math.sin(angle);
+                }
+
+                magnitudes[k] = Math.sqrt(realSum * realSum + imagSum * imagSum) / N;
+            }
+
+            return magnitudes;
+        }
+
+        // Draw spectrum analyzer
+        function drawSpectrum(magnitudes) {
+            const width = spectrumCanvas.width;
+            const height = spectrumCanvas.height;
+
+            // Clear canvas
+            spectrumCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            spectrumCtx.fillRect(0, 0, width, height);
+
+            // Draw frequency grid
+            spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            spectrumCtx.lineWidth = 1;
+            for (let i = 0; i < 10; i++) {
+                const y = (height / 10) * i;
+                spectrumCtx.beginPath();
+                spectrumCtx.moveTo(0, y);
+                spectrumCtx.lineTo(width, y);
+                spectrumCtx.stroke();
+            }
+
+            if (!magnitudes || magnitudes.length === 0) return;
+
+            // Smooth the spectrum data
+            for (let i = 0; i < magnitudes.length && i < spectrumData.length; i++) {
+                spectrumData[i] = spectrumData[i] * 0.8 + magnitudes[i] * 0.2;
+            }
+
+            // Draw spectrum
+            const barWidth = width / spectrumData.length;
+            const gradient = spectrumCtx.createLinearGradient(0, height, 0, 0);
+            gradient.addColorStop(0, '#27ae60');
+            gradient.addColorStop(0.5, '#f39c12');
+            gradient.addColorStop(1, '#e74c3c');
+
+            spectrumCtx.fillStyle = gradient;
+
+            for (let i = 0; i < spectrumData.length; i++) {
+                const barHeight = (spectrumData[i] * height * 2);
+                const x = i * barWidth;
+                const y = height - barHeight;
+
+                spectrumCtx.fillRect(x, y, barWidth - 1, barHeight);
+            }
+        }
+
+        // Audio processing
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                addLog('Audio context initialized');
+            }
+        }
+
+        function playAudioSamples(samples) {
+            if (!audioEnabled || !audioContext || samples.length === 0) return;
+
+            try {
+                // Convert I/Q samples to audio (simple AM demodulation)
+                const audioSamples = new Float32Array(samples.length);
+                for (let i = 0; i < samples.length; i++) {
+                    audioSamples[i] = samples[i].magnitude;
+                }
+
+                // Create audio buffer
+                const buffer = audioContext.createBuffer(1, audioSamples.length, audioContext.sampleRate);
+                const channelData = buffer.getChannelData(0);
+                channelData.set(audioSamples);
+
+                // Create source and gain nodes
+                const source = audioContext.createBufferSource();
+                const gainNode = audioContext.createGain();
+
+                source.buffer = buffer;
+                gainNode.gain.value = volumeSlider.value / 100;
+
+                source.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                source.start(0);
+            } catch (error) {
+                console.error('Audio playback error:', error);
+            }
+        }
+
+        // Volume control
+        volumeSlider.addEventListener('input', (e) => {
+            volumeValue.textContent = e.target.value + '%';
+        });
+
+        // Audio enable/disable
+        audioBtn.addEventListener('click', () => {
+            if (!audioEnabled) {
+                initAudio();
+                audioEnabled = true;
+                audioBtn.textContent = 'Disable Audio';
+                audioBtn.classList.remove('start-btn');
+                audioBtn.classList.add('stop-btn');
+                addLog('Audio output enabled');
+            } else {
+                audioEnabled = false;
+                audioBtn.textContent = 'Enable Audio';
+                audioBtn.classList.remove('stop-btn');
+                audioBtn.classList.add('start-btn');
+                addLog('Audio output disabled');
+            }
+        });
 
         function addLog(message) {
             const now = new Date();
@@ -324,6 +474,13 @@
             logContainer.appendChild(logEntry);
             logContainer.scrollTop = logContainer.scrollHeight;
         }
+
+        // Start drawing spectrum animation
+        function animateSpectrum() {
+            drawSpectrum();
+            requestAnimationFrame(animateSpectrum);
+        }
+        animateSpectrum();
 
         startBtn.addEventListener('click', () => {
             const frequency = document.getElementById('frequency').value;
@@ -340,6 +497,7 @@
             isMonitoring = true;
             startBtn.disabled = true;
             stopBtn.disabled = false;
+            audioBtn.disabled = false;
             statusDot.classList.add('active');
             statusText.textContent = 'Monitoring Active';
 
@@ -354,17 +512,38 @@
             isMonitoring = false;
             startBtn.disabled = false;
             stopBtn.disabled = true;
+            audioBtn.disabled = true;
             statusDot.classList.remove('active');
             statusText.textContent = 'Monitoring Stopped';
             addLog('Monitoring stopped');
         });
 
         socket.on('sdr-data', (data) => {
-            sampleCount++;
-            document.getElementById('samplesCount').textContent = sampleCount.toLocaleString();
+            if (data.type === 'data' && data.samples) {
+                sampleCount++;
+                document.getElementById('samplesCount').textContent = sampleCount.toLocaleString();
 
-            if (sampleCount % 10 === 0) {
-                addLog(`Received data packet #${sampleCount}`);
+                // Extract magnitudes for FFT
+                const magnitudes = data.samples.map(s => s.i);
+
+                // Compute FFT and draw spectrum
+                if (magnitudes.length > 0) {
+                    const spectrum = fft(magnitudes);
+                    drawSpectrum(spectrum);
+                }
+
+                // Play audio if enabled
+                if (audioEnabled) {
+                    playAudioSamples(data.samples);
+                }
+
+                if (sampleCount % 10 === 0) {
+                    addLog(`Received data packet #${sampleCount} - ${data.stats.bytesReceived} bytes`);
+                }
+            } else if (data.type === 'status') {
+                addLog(`Status: ${data.message}`);
+            } else if (data.type === 'error') {
+                addLog(`Error: ${data.message}`);
             }
         });
 

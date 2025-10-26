@@ -81,6 +81,43 @@ app.get('/sdr', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'sdr.html'));
 });
 
+// API endpoint for server stats
+app.get('/api/server-stats', requireAuth, (req, res) => {
+    const os = require('os');
+
+    const uptime = os.uptime(); // System uptime in seconds
+    const totalMemory = os.totalmem();
+    const freeMemory = os.freemem();
+    const usedMemory = totalMemory - freeMemory;
+    const memoryUsagePercent = ((usedMemory / totalMemory) * 100).toFixed(1);
+
+    // Format uptime
+    const days = Math.floor(uptime / 86400);
+    const hours = Math.floor((uptime % 86400) / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = Math.floor(uptime % 60);
+
+    let uptimeFormatted = '';
+    if (days > 0) uptimeFormatted += `${days}d `;
+    if (hours > 0 || days > 0) uptimeFormatted += `${hours}h `;
+    if (minutes > 0 || hours > 0 || days > 0) uptimeFormatted += `${minutes}m `;
+    uptimeFormatted += `${seconds}s`;
+
+    res.json({
+        uptime: uptimeFormatted,
+        uptimeSeconds: uptime,
+        serverTime: new Date().toISOString(),
+        hostname: os.hostname(),
+        platform: os.platform(),
+        arch: os.arch(),
+        cpus: os.cpus().length,
+        totalMemory: (totalMemory / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+        freeMemory: (freeMemory / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+        usedMemory: (usedMemory / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+        memoryUsagePercent: memoryUsagePercent + '%'
+    });
+});
+
 // Socket.IO for real-time RTL-SDR data
 io.use((socket, next) => {
     const sessionMiddleware = session({

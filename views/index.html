@@ -181,6 +181,10 @@
                 <span id="status">Online</span>
             </div>
             <div class="info-item">
+                <span class="info-label">Hostname:</span>
+                <span id="hostname">Loading...</span>
+            </div>
+            <div class="info-item">
                 <span class="info-label">Uptime:</span>
                 <span id="uptime">Loading...</span>
             </div>
@@ -188,33 +192,48 @@
                 <span class="info-label">Server Time:</span>
                 <span id="serverTime">Loading...</span>
             </div>
+            <div class="info-item">
+                <span class="info-label">CPU Cores:</span>
+                <span id="cpus">Loading...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Memory Usage:</span>
+                <span id="memoryUsage">Loading...</span>
+            </div>
         </div>
     </div>
 
     <script>
-        // Update server time
-        function updateServerTime() {
-            const now = new Date();
-            document.getElementById('serverTime').textContent = now.toLocaleString();
+        // Fetch real server stats from API
+        async function fetchServerStats() {
+            try {
+                const response = await fetch('/api/server-stats');
+                if (!response.ok) throw new Error('Failed to fetch server stats');
+
+                const stats = await response.json();
+
+                // Update all fields with real data
+                document.getElementById('hostname').textContent = stats.hostname;
+                document.getElementById('uptime').textContent = stats.uptime;
+                document.getElementById('cpus').textContent = stats.cpus;
+                document.getElementById('memoryUsage').textContent =
+                    `${stats.usedMemory} / ${stats.totalMemory} (${stats.memoryUsagePercent})`;
+
+                // Update server time (convert from ISO to local string)
+                const serverTime = new Date(stats.serverTime);
+                document.getElementById('serverTime').textContent = serverTime.toLocaleString();
+
+            } catch (error) {
+                console.error('Error fetching server stats:', error);
+                document.getElementById('status').textContent = 'Error loading stats';
+            }
         }
 
-        // Calculate uptime (simplified - you can enhance this)
-        function updateUptime() {
-            const start = Date.now();
-            setInterval(() => {
-                const uptime = Date.now() - start;
-                const seconds = Math.floor(uptime / 1000);
-                const minutes = Math.floor(seconds / 60);
-                const hours = Math.floor(minutes / 60);
+        // Initial fetch
+        fetchServerStats();
 
-                document.getElementById('uptime').textContent =
-                    `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-            }, 1000);
-        }
-
-        updateServerTime();
-        setInterval(updateServerTime, 1000);
-        updateUptime();
+        // Update every 5 seconds
+        setInterval(fetchServerStats, 5000);
     </script>
 </body>
 </html>
