@@ -145,6 +145,200 @@
             font-weight: 600;
             margin-right: 20px;
         }
+
+        .usage-graphs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .graph-container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .graph-container h4 {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .circular-graph {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            margin: 0 auto;
+        }
+
+        .circular-graph canvas {
+            display: block;
+        }
+
+        .graph-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .graph-label small {
+            display: block;
+            font-size: 12px;
+            font-weight: normal;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        /* Mobile responsive styles */
+        @media screen and (max-width: 768px) {
+            .container {
+                padding: 30px 15px;
+            }
+
+            h1 {
+                font-size: 32px;
+                margin-bottom: 15px;
+            }
+
+            .welcome-message {
+                font-size: 18px;
+                margin-bottom: 30px;
+            }
+
+            .navbar {
+                padding: 12px 15px;
+                flex-wrap: wrap;
+            }
+
+            .navbar-brand {
+                font-size: 20px;
+            }
+
+            .navbar-links {
+                gap: 10px;
+            }
+
+            .navbar-links a {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+
+            .card-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                margin-top: 30px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .card h2 {
+                font-size: 24px;
+            }
+
+            .card p {
+                font-size: 15px;
+            }
+
+            .server-info {
+                padding: 15px;
+                margin-top: 30px;
+                width: 100%;
+            }
+
+            .server-info h3 {
+                font-size: 18px;
+            }
+
+            .info-item {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 8px 0;
+            }
+
+            .info-label {
+                margin-bottom: 5px;
+                margin-right: 0;
+            }
+
+            .usage-graphs {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                margin-top: 20px;
+            }
+
+            .graph-container {
+                padding: 15px;
+            }
+
+            .graph-container h4 {
+                font-size: 16px;
+                margin-bottom: 10px;
+            }
+
+            .circular-graph {
+                width: 150px;
+                height: 150px;
+            }
+
+            .circular-graph canvas {
+                width: 150px !important;
+                height: 150px !important;
+            }
+
+            .graph-label {
+                font-size: 20px;
+            }
+
+            .graph-label small {
+                font-size: 11px;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            h1 {
+                font-size: 28px;
+            }
+
+            .welcome-message {
+                font-size: 16px;
+            }
+
+            .navbar-brand {
+                font-size: 18px;
+            }
+
+            .navbar-links {
+                width: 100%;
+                justify-content: space-around;
+                margin-top: 10px;
+            }
+
+            .card h2 {
+                font-size: 20px;
+            }
+
+            .circular-graph {
+                width: 130px;
+                height: 130px;
+            }
+
+            .circular-graph canvas {
+                width: 130px !important;
+                height: 130px !important;
+            }
+
+            .graph-label {
+                font-size: 18px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -196,14 +390,84 @@
                 <span class="info-label">CPU Cores:</span>
                 <span id="cpus">Loading...</span>
             </div>
-            <div class="info-item">
-                <span class="info-label">Memory Usage:</span>
-                <span id="memoryUsage">Loading...</span>
+        </div>
+
+        <div class="usage-graphs">
+            <div class="graph-container">
+                <h4>Memory Usage</h4>
+                <div class="circular-graph">
+                    <canvas id="memoryCanvas" width="180" height="180"></canvas>
+                    <div class="graph-label">
+                        <span id="memoryPercent">0%</span>
+                        <small id="memoryDetails">0 / 0 GB</small>
+                    </div>
+                </div>
+            </div>
+            <div class="graph-container">
+                <h4>Storage Usage</h4>
+                <div class="circular-graph">
+                    <canvas id="storageCanvas" width="180" height="180"></canvas>
+                    <div class="graph-label">
+                        <span id="storagePercent">0%</span>
+                        <small id="storageDetails">0 / 0 GB</small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        // Function to draw circular progress graph
+        function drawCircularGraph(canvasId, percentage, color) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+
+            // Get actual canvas size (accounting for responsive CSS)
+            const rect = canvas.getBoundingClientRect();
+            const scale = window.devicePixelRatio || 1;
+            canvas.width = rect.width * scale;
+            canvas.height = rect.height * scale;
+            ctx.scale(scale, scale);
+
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const radius = Math.min(centerX, centerY) - 20;
+            const lineWidth = Math.max(12, radius / 5);
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw background circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = lineWidth;
+            ctx.stroke();
+
+            // Draw progress arc
+            const startAngle = -Math.PI / 2; // Start at top
+            const endAngle = startAngle + (2 * Math.PI * percentage / 100);
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Add glow effect
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = color;
+            ctx.stroke();
+        }
+
+        // Function to get color based on percentage
+        function getUsageColor(percentage) {
+            if (percentage < 60) return '#27ae60'; // Green
+            if (percentage < 80) return '#f39c12'; // Orange
+            return '#e74c3c'; // Red
+        }
+
         // Fetch real server stats from API
         async function fetchServerStats() {
             try {
@@ -216,12 +480,26 @@
                 document.getElementById('hostname').textContent = stats.hostname;
                 document.getElementById('uptime').textContent = stats.uptime;
                 document.getElementById('cpus').textContent = stats.cpus;
-                document.getElementById('memoryUsage').textContent =
-                    `${stats.usedMemory} / ${stats.totalMemory} (${stats.memoryUsagePercent})`;
 
                 // Update server time (convert from ISO to local string)
                 const serverTime = new Date(stats.serverTime);
                 document.getElementById('serverTime').textContent = serverTime.toLocaleString();
+
+                // Update memory graph
+                const memoryPercent = stats.memoryUsagePercent;
+                const memoryColor = getUsageColor(memoryPercent);
+                drawCircularGraph('memoryCanvas', memoryPercent, memoryColor);
+                document.getElementById('memoryPercent').textContent = memoryPercent + '%';
+                document.getElementById('memoryDetails').textContent =
+                    `${stats.usedMemory} / ${stats.totalMemory} GB`;
+
+                // Update storage graph
+                const storagePercent = stats.diskUsagePercent;
+                const storageColor = getUsageColor(storagePercent);
+                drawCircularGraph('storageCanvas', storagePercent, storageColor);
+                document.getElementById('storagePercent').textContent = storagePercent + '%';
+                document.getElementById('storageDetails').textContent =
+                    `${stats.usedDisk} / ${stats.totalDisk} GB`;
 
             } catch (error) {
                 console.error('Error fetching server stats:', error);

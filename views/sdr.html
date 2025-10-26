@@ -91,7 +91,7 @@
 
         input[type="number"],
         input[type="text"] {
-            padding: 10px;
+            padding: 10px 12px;
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 5px;
             background: rgba(255, 255, 255, 0.1);
@@ -103,6 +103,49 @@
         input[type="text"]:focus {
             outline: none;
             border-color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Modern number input arrows */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            opacity: 1;
+            height: 40px;
+            cursor: pointer;
+        }
+
+        input[type="number"] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        input[type="number"]::-webkit-inner-spin-button {
+            background: linear-gradient(to bottom,
+                rgba(255, 255, 255, 0.2) 0%,
+                rgba(255, 255, 255, 0.2) 50%,
+                rgba(255, 255, 255, 0.1) 50%,
+                rgba(255, 255, 255, 0.1) 100%);
+        }
+
+        input[type="number"]::-webkit-inner-spin-button:hover {
+            background: linear-gradient(to bottom,
+                rgba(255, 255, 255, 0.3) 0%,
+                rgba(255, 255, 255, 0.3) 50%,
+                rgba(255, 255, 255, 0.2) 50%,
+                rgba(255, 255, 255, 0.2) 100%);
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-unit {
+            position: absolute;
+            right: 45px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            pointer-events: none;
         }
 
         .button-group {
@@ -231,6 +274,136 @@
             background: rgba(0, 0, 0, 0.3);
             border-radius: 5px;
         }
+
+        /* Mobile responsive styles */
+        @media screen and (max-width: 768px) {
+            .container {
+                padding: 20px 15px;
+            }
+
+            h1 {
+                font-size: 28px;
+                margin-bottom: 20px;
+            }
+
+            .navbar {
+                padding: 12px 15px;
+                flex-wrap: wrap;
+            }
+
+            .navbar-brand {
+                font-size: 20px;
+            }
+
+            .navbar-links {
+                gap: 10px;
+            }
+
+            .navbar-links a {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+
+            .control-panel {
+                padding: 20px;
+            }
+
+            .control-panel h2 {
+                font-size: 20px;
+            }
+
+            .control-row {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .control-group label {
+                font-size: 13px;
+            }
+
+            .input-wrapper input {
+                font-size: 16px; /* Prevents auto-zoom on iOS */
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .button-group button {
+                width: 100%;
+            }
+
+            .data-display {
+                padding: 20px;
+            }
+
+            .data-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .data-item {
+                padding: 12px;
+            }
+
+            .data-value {
+                font-size: 20px;
+            }
+
+            #spectrumCanvas {
+                height: 250px;
+            }
+
+            .log-container {
+                max-height: 200px;
+                font-size: 12px;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            h1 {
+                font-size: 24px;
+            }
+
+            .navbar-brand {
+                font-size: 18px;
+            }
+
+            .navbar-links {
+                width: 100%;
+                justify-content: space-around;
+                margin-top: 10px;
+            }
+
+            .control-panel {
+                padding: 15px;
+            }
+
+            .control-panel h2 {
+                font-size: 18px;
+            }
+
+            .data-display h3 {
+                font-size: 16px;
+            }
+
+            button {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+
+            #spectrumCanvas {
+                height: 200px;
+            }
+
+            .data-value {
+                font-size: 18px;
+            }
+
+            .data-label {
+                font-size: 11px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -250,16 +423,25 @@
             <h2 style="margin-bottom: 20px;">Configuration</h2>
             <div class="control-row">
                 <div class="control-group">
-                    <label for="frequency">Frequency (Hz)</label>
-                    <input type="number" id="frequency" value="100000000" placeholder="e.g., 100000000">
+                    <label for="frequency">Frequency (MHz)</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="frequency" value="100" step="0.1" placeholder="e.g., 100.0">
+                        <span class="input-unit">MHz</span>
+                    </div>
                 </div>
                 <div class="control-group">
                     <label for="sampleRate">Sample Rate (Hz)</label>
-                    <input type="number" id="sampleRate" value="2048000" placeholder="e.g., 2048000">
+                    <div class="input-wrapper">
+                        <input type="number" id="sampleRate" value="2048000" step="1000" placeholder="e.g., 2048000">
+                        <span class="input-unit">Hz</span>
+                    </div>
                 </div>
                 <div class="control-group">
                     <label for="gain">Gain (dB)</label>
-                    <input type="number" id="gain" value="0" placeholder="0 for auto">
+                    <div class="input-wrapper">
+                        <input type="number" id="gain" value="0" step="1" placeholder="0 for auto">
+                        <span class="input-unit">dB</span>
+                    </div>
                 </div>
             </div>
 
@@ -336,6 +518,7 @@
         const spectrumCanvas = document.getElementById('spectrumCanvas');
         const spectrumCtx = spectrumCanvas.getContext('2d');
         const spectrumData = new Array(256).fill(0);
+        let currentCenterFreq = 100000000; // Store current center frequency
 
         // Simple FFT implementation for visualization
         function fft(samples) {
@@ -362,21 +545,76 @@
         function drawSpectrum(magnitudes) {
             const width = spectrumCanvas.width;
             const height = spectrumCanvas.height;
+            const padding = 50; // Space for labels
+            const graphWidth = width - padding * 2;
+            const graphHeight = height - padding;
 
             // Clear canvas
             spectrumCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
             spectrumCtx.fillRect(0, 0, width, height);
 
-            // Draw frequency grid
+            // Draw horizontal grid lines and amplitude labels
             spectrumCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            spectrumCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            spectrumCtx.font = '11px monospace';
             spectrumCtx.lineWidth = 1;
-            for (let i = 0; i < 10; i++) {
-                const y = (height / 10) * i;
+
+            for (let i = 0; i <= 10; i++) {
+                const y = padding + (graphHeight / 10) * i;
+
+                // Draw grid line
                 spectrumCtx.beginPath();
-                spectrumCtx.moveTo(0, y);
-                spectrumCtx.lineTo(width, y);
+                spectrumCtx.moveTo(padding, y);
+                spectrumCtx.lineTo(width - padding, y);
                 spectrumCtx.stroke();
+
+                // Draw amplitude label (dB scale, inverted)
+                const dbValue = -(i * 10); // 0 to -100 dB
+                spectrumCtx.textAlign = 'right';
+                spectrumCtx.fillText(dbValue + ' dB', padding - 5, y + 4);
             }
+
+            // Draw vertical grid lines and frequency labels
+            const numFreqLabels = 8;
+            const sampleRate = 2048000; // Default sample rate
+            const freqStart = currentCenterFreq - sampleRate / 2;
+            const freqEnd = currentCenterFreq + sampleRate / 2;
+
+            for (let i = 0; i <= numFreqLabels; i++) {
+                const x = padding + (graphWidth / numFreqLabels) * i;
+
+                // Draw vertical grid line
+                spectrumCtx.beginPath();
+                spectrumCtx.moveTo(x, padding);
+                spectrumCtx.lineTo(x, height - padding);
+                spectrumCtx.stroke();
+
+                // Calculate and draw frequency label
+                const freq = freqStart + (freqEnd - freqStart) * (i / numFreqLabels);
+                const freqMHz = (freq / 1000000).toFixed(2);
+
+                spectrumCtx.save();
+                spectrumCtx.translate(x, height - padding + 15);
+                spectrumCtx.textAlign = 'center';
+                spectrumCtx.fillText(freqMHz + ' MHz', 0, 0);
+                spectrumCtx.restore();
+            }
+
+            // Draw axis labels
+            spectrumCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            spectrumCtx.font = 'bold 12px sans-serif';
+
+            // Y-axis label
+            spectrumCtx.save();
+            spectrumCtx.translate(15, height / 2);
+            spectrumCtx.rotate(-Math.PI / 2);
+            spectrumCtx.textAlign = 'center';
+            spectrumCtx.fillText('Amplitude (dB)', 0, 0);
+            spectrumCtx.restore();
+
+            // X-axis label
+            spectrumCtx.textAlign = 'center';
+            spectrumCtx.fillText('Frequency', width / 2, height - 10);
 
             if (!magnitudes || magnitudes.length === 0) return;
 
@@ -385,9 +623,9 @@
                 spectrumData[i] = spectrumData[i] * 0.8 + magnitudes[i] * 0.2;
             }
 
-            // Draw spectrum
-            const barWidth = width / spectrumData.length;
-            const gradient = spectrumCtx.createLinearGradient(0, height, 0, 0);
+            // Draw spectrum bars
+            const barWidth = graphWidth / spectrumData.length;
+            const gradient = spectrumCtx.createLinearGradient(0, height - padding, 0, padding);
             gradient.addColorStop(0, '#27ae60');
             gradient.addColorStop(0.5, '#f39c12');
             gradient.addColorStop(1, '#e74c3c');
@@ -395,9 +633,9 @@
             spectrumCtx.fillStyle = gradient;
 
             for (let i = 0; i < spectrumData.length; i++) {
-                const barHeight = (spectrumData[i] * height * 2);
-                const x = i * barWidth;
-                const y = height - barHeight;
+                const barHeight = (spectrumData[i] * graphHeight * 2);
+                const x = padding + i * barWidth;
+                const y = height - padding - barHeight;
 
                 spectrumCtx.fillRect(x, y, barWidth - 1, barHeight);
             }
@@ -483,15 +721,21 @@
         animateSpectrum();
 
         startBtn.addEventListener('click', () => {
-            const frequency = document.getElementById('frequency').value;
-            const sampleRate = document.getElementById('sampleRate').value;
-            const gain = document.getElementById('gain').value;
+            const frequencyMHz = parseFloat(document.getElementById('frequency').value);
+            const sampleRate = parseInt(document.getElementById('sampleRate').value);
+            const gain = parseInt(document.getElementById('gain').value);
+
+            // Convert MHz to Hz
+            const frequencyHz = Math.round(frequencyMHz * 1000000);
 
             const config = {
-                frequency: parseInt(frequency),
-                sampleRate: parseInt(sampleRate),
-                gain: parseInt(gain)
+                frequency: frequencyHz,
+                sampleRate: sampleRate,
+                gain: gain
             };
+
+            // Store current center frequency for spectrum labels
+            currentCenterFreq = frequencyHz;
 
             socket.emit('start-sdr', config);
             isMonitoring = true;
@@ -501,10 +745,10 @@
             statusDot.classList.add('active');
             statusText.textContent = 'Monitoring Active';
 
-            document.getElementById('currentFreq').textContent = `${(frequency / 1000000).toFixed(2)} MHz`;
+            document.getElementById('currentFreq').textContent = `${frequencyMHz.toFixed(2)} MHz`;
             document.getElementById('currentSampleRate').textContent = `${(sampleRate / 1000).toFixed(0)} KHz`;
 
-            addLog(`Started monitoring at ${(frequency / 1000000).toFixed(2)} MHz`);
+            addLog(`Started monitoring at ${frequencyMHz.toFixed(2)} MHz`);
         });
 
         stopBtn.addEventListener('click', () => {

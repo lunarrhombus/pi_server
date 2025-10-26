@@ -82,14 +82,17 @@ app.get('/sdr', requireAuth, (req, res) => {
 });
 
 // API endpoint for server stats
-app.get('/api/server-stats', requireAuth, (req, res) => {
+app.get('/api/server-stats', requireAuth, async (req, res) => {
     const os = require('os');
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execPromise = util.promisify(exec);
 
     const uptime = os.uptime(); // System uptime in seconds
     const totalMemory = os.totalmem();
     const freeMemory = os.freemem();
     const usedMemory = totalMemory - freeMemory;
-    const memoryUsagePercent = ((usedMemory / totalMemory) * 100).toFixed(1);
+    const memoryUsagePercent = parseFloat(((usedMemory / totalMemory) * 100).toFixed(1));
 
     // Format uptime
     const days = Math.floor(uptime / 86400);
@@ -103,6 +106,31 @@ app.get('/api/server-stats', requireAuth, (req, res) => {
     if (minutes > 0 || hours > 0 || days > 0) uptimeFormatted += `${minutes}m `;
     uptimeFormatted += `${seconds}s`;
 
+    // Get disk usage
+    let diskTotal = 0;
+    let diskUsed = 0;
+    let diskFree = 0;
+    let diskUsagePercent = 0;
+
+    try {
+        // Try to get disk usage (works on Linux/Mac)
+        const { stdout } = await execPromise('df -k / | tail -1');
+        const parts = stdout.trim().split(/\s+/);
+        if (parts.length >= 5) {
+            diskTotal = parseInt(parts[1]) * 1024; // Convert KB to bytes
+            diskUsed = parseInt(parts[2]) * 1024;
+            diskFree = parseInt(parts[3]) * 1024;
+            diskUsagePercent = parseFloat(((diskUsed / diskTotal) * 100).toFixed(1));
+        }
+    } catch (error) {
+        console.error('Error getting disk usage:', error.message);
+        // Default values if command fails
+        diskTotal = 0;
+        diskUsed = 0;
+        diskFree = 0;
+        diskUsagePercent = 0;
+    }
+
     res.json({
         uptime: uptimeFormatted,
         uptimeSeconds: uptime,
@@ -111,10 +139,14 @@ app.get('/api/server-stats', requireAuth, (req, res) => {
         platform: os.platform(),
         arch: os.arch(),
         cpus: os.cpus().length,
-        totalMemory: (totalMemory / 1024 / 1024 / 1024).toFixed(2) + ' GB',
-        freeMemory: (freeMemory / 1024 / 1024 / 1024).toFixed(2) + ' GB',
-        usedMemory: (usedMemory / 1024 / 1024 / 1024).toFixed(2) + ' GB',
-        memoryUsagePercent: memoryUsagePercent + '%'
+        totalMemory: (totalMemory / 1024 / 1024 / 1024).toFixed(2),
+        freeMemory: (freeMemory / 1024 / 1024 / 1024).toFixed(2),
+        usedMemory: (usedMemory / 1024 / 1024 / 1024).toFixed(2),
+        memoryUsagePercent: memoryUsagePercent,
+        totalDisk: (diskTotal / 1024 / 1024 / 1024).toFixed(2),
+        freeDisk: (diskFree / 1024 / 1024 / 1024).toFixed(2),
+        usedDisk: (diskUsed / 1024 / 1024 / 1024).toFixed(2),
+        diskUsagePercent: diskUsagePercent
     });
 });
 
