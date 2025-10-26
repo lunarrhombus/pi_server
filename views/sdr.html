@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RTL-SDR Monitor - Pi Server</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .navbar {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .navbar-brand {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .navbar-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .navbar-links a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .navbar-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .control-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="number"],
+        input[type="text"] {
+            padding: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+        }
+
+        input[type="number"]:focus,
+        input[type="text"]:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .start-btn {
+            background: #27ae60;
+            color: white;
+        }
+
+        .stop-btn {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .data-display {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e74c3c;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.active {
+            background: #27ae60;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .data-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+
+        .data-label {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .data-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .log-container {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-timestamp {
+            color: #3498db;
+            margin-right: 10px;
+        }
+
+        canvas {
+            width: 100%;
+            max-width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-brand">RTL-SDR Monitor</div>
+        <div class="navbar-links">
+            <a href="/">Home</a>
+            <a href="/sdr">RTL-SDR</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>RTL-SDR Real-Time Monitor</h1>
+
+        <div class="control-panel">
+            <h2 style="margin-bottom: 20px;">Configuration</h2>
+            <div class="control-row">
+                <div class="control-group">
+                    <label for="frequency">Frequency (Hz)</label>
+                    <input type="number" id="frequency" value="100000000" placeholder="e.g., 100000000">
+                </div>
+                <div class="control-group">
+                    <label for="sampleRate">Sample Rate (Hz)</label>
+                    <input type="number" id="sampleRate" value="2048000" placeholder="e.g., 2048000">
+                </div>
+                <div class="control-group">
+                    <label for="gain">Gain (dB)</label>
+                    <input type="number" id="gain" value="0" placeholder="0 for auto">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="start-btn" id="startBtn">Start Monitoring</button>
+                <button class="stop-btn" id="stopBtn" disabled>Stop Monitoring</button>
+            </div>
+        </div>
+
+        <div class="data-display">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Disconnected</span>
+            </div>
+
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Current Frequency</div>
+                    <div class="data-value" id="currentFreq">-</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Sample Rate</div>
+                    <div class="data-value" id="currentSampleRate">-</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Samples Received</div>
+                    <div class="data-value" id="samplesCount">0</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Data Rate</div>
+                    <div class="data-value" id="dataRate">0 KB/s</div>
+                </div>
+            </div>
+
+            <h3 style="margin: 20px 0 10px 0;">Activity Log</h3>
+            <div class="log-container" id="logContainer">
+                <div class="log-entry">
+                    <span class="log-timestamp">[--:--:--]</span>
+                    <span>Waiting to start...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let isMonitoring = false;
+        let sampleCount = 0;
+
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const logContainer = document.getElementById('logContainer');
+
+        function addLog(message) {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span><span>${message}</span>`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        startBtn.addEventListener('click', () => {
+            const frequency = document.getElementById('frequency').value;
+            const sampleRate = document.getElementById('sampleRate').value;
+            const gain = document.getElementById('gain').value;
+
+            const config = {
+                frequency: parseInt(frequency),
+                sampleRate: parseInt(sampleRate),
+                gain: parseInt(gain)
+            };
+
+            socket.emit('start-sdr', config);
+            isMonitoring = true;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            statusDot.classList.add('active');
+            statusText.textContent = 'Monitoring Active';
+
+            document.getElementById('currentFreq').textContent = `${(frequency / 1000000).toFixed(2)} MHz`;
+            document.getElementById('currentSampleRate').textContent = `${(sampleRate / 1000).toFixed(0)} KHz`;
+
+            addLog(`Started monitoring at ${(frequency / 1000000).toFixed(2)} MHz`);
+        });
+
+        stopBtn.addEventListener('click', () => {
+            socket.emit('stop-sdr');
+            isMonitoring = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            statusDot.classList.remove('active');
+            statusText.textContent = 'Monitoring Stopped';
+            addLog('Monitoring stopped');
+        });
+
+        socket.on('sdr-data', (data) => {
+            sampleCount++;
+            document.getElementById('samplesCount').textContent = sampleCount.toLocaleString();
+
+            if (sampleCount % 10 === 0) {
+                addLog(`Received data packet #${sampleCount}`);
+            }
+        });
+
+        socket.on('connect', () => {
+            addLog('Connected to server');
+        });
+
+        socket.on('disconnect', () => {
+            addLog('Disconnected from server');
+            statusDot.classList.remove('active');
+            statusText.textContent = 'Disconnected';
+        });
+
+        socket.on('error', (error) => {
+            addLog(`Error: ${error.message}`);
+        });
+    </script>
+</body>
+</html>

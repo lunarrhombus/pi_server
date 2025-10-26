@@ -1,0 +1,21 @@
+{
+  "name": "pi_server",
+  "version": "1.0.0",
+  "description": "Raspberry Pi web server with RTL-SDR integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "generate-hash": "node generateHash.js"
+  },
+  "keywords": ["raspberry-pi", "rtl-sdr", "web-server"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "socket.io": "^4.8.1"
+  }
+}
