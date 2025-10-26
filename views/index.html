@@ -246,9 +246,6 @@
                 font-size: 18px;
             }
 
-            #memoryCanvas {
-                height: 200px !important;
-            }
         }
 
         @media screen and (max-width: 480px) {
@@ -274,9 +271,6 @@
                 font-size: 20px;
             }
 
-            #memoryCanvas {
-                height: 150px !important;
-            }
         }
     </style>
 </head>
@@ -339,10 +333,6 @@
             </div>
         </div>
 
-        <div class="graph-container" style="max-width: 100%; margin-top: 30px;">
-            <h3 style="margin-bottom: 15px;">Memory Usage Over Time</h3>
-            <canvas id="memoryCanvas" width="1200" height="300"></canvas>
-        </div>
     </div>
 
     <script>
@@ -350,107 +340,7 @@
         const memoryHistory = [];
         const maxDataPoints = 60;
 
-        // Function to draw memory usage over time graph
-        function drawMemoryGraph() {
-            const canvas = document.getElementById('memoryCanvas');
-            const ctx = canvas.getContext('2d');
-            const width = canvas.width;
-            const height = canvas.height;
-            const padding = 50;
-            const graphWidth = width - padding * 2;
-            const graphHeight = height - padding;
 
-            // Clear canvas
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-            ctx.fillRect(0, 0, width, height);
-
-            if (memoryHistory.length === 0) return;
-
-            // Draw grid lines and labels
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.font = '11px monospace';
-            ctx.lineWidth = 1;
-
-            // Horizontal grid lines (memory percentage)
-            for (let i = 0; i <= 10; i++) {
-                const y = padding + (graphHeight / 10) * i;
-                ctx.beginPath();
-                ctx.moveTo(padding, y);
-                ctx.lineTo(width - padding, y);
-                ctx.stroke();
-
-                // Y-axis labels (100% to 0%)
-                const percent = 100 - (i * 10);
-                ctx.textAlign = 'right';
-                ctx.fillText(percent + '%', padding - 5, y + 4);
-            }
-
-            // Draw axis labels
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.font = 'bold 12px sans-serif';
-
-            // Y-axis label
-            ctx.save();
-            ctx.translate(15, height / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.textAlign = 'center';
-            ctx.fillText('Memory Usage (%)', 0, 0);
-            ctx.restore();
-
-            // X-axis label
-            ctx.textAlign = 'center';
-            ctx.fillText('Time (seconds ago)', width / 2, height - 10);
-
-            // Draw memory usage line
-            ctx.beginPath();
-            ctx.strokeStyle = '#3498db';
-            ctx.lineWidth = 2;
-
-            const pointSpacing = graphWidth / (maxDataPoints - 1);
-
-            for (let i = 0; i < memoryHistory.length; i++) {
-                const x = padding + (graphWidth - (memoryHistory.length - 1 - i) * pointSpacing);
-                const y = padding + graphHeight - (memoryHistory[i] / 100) * graphHeight;
-
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            }
-
-            ctx.stroke();
-
-            // Draw filled area under the line
-            if (memoryHistory.length > 0) {
-                ctx.lineTo(width - padding, padding + graphHeight);
-                ctx.lineTo(padding + (graphWidth - (memoryHistory.length - 1) * pointSpacing), padding + graphHeight);
-                ctx.closePath();
-                ctx.fillStyle = 'rgba(52, 152, 219, 0.2)';
-                ctx.fill();
-            }
-
-            // Draw points
-            ctx.fillStyle = '#3498db';
-            for (let i = 0; i < memoryHistory.length; i++) {
-                const x = padding + (graphWidth - (memoryHistory.length - 1 - i) * pointSpacing);
-                const y = padding + graphHeight - (memoryHistory[i] / 100) * graphHeight;
-
-                ctx.beginPath();
-                ctx.arc(x, y, 3, 0, 2 * Math.PI);
-                ctx.fill();
-            }
-
-            // Draw current value
-            if (memoryHistory.length > 0) {
-                const currentValue = memoryHistory[memoryHistory.length - 1];
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                ctx.font = 'bold 16px sans-serif';
-                ctx.textAlign = 'left';
-                ctx.fillText(`Current: ${currentValue.toFixed(1)}%`, width - padding - 120, padding + 20);
-            }
-        }
 
         // Fetch real server stats from API
         async function fetchServerStats() {
